@@ -1,0 +1,32 @@
+name: Idk
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Xcode tools
+      run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+
+    - name: Build dylib
+      run: |
+        clang -arch arm64 \
+          -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+          -miphoneos-version-min=12.0 \
+          -framework UIKit \
+          -framework Foundation \
+          -dynamiclib overlay_tweak.mm \
+          -o overlay_tweak.dylib
+
+    - name: Upload dylib
+      uses: actions/upload-artifact@v3
+      with:
+        name: overlay_tweak
+        path: overlay_tweak.dylib
