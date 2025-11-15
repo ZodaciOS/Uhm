@@ -16,6 +16,7 @@ static void replaced_viewDidAppear(id self, SEL _cmd, BOOL animated) {
     HelloOverlay *overlay = [[HelloOverlay alloc] initWithFrame:frame];
     overlay.backgroundColor = [UIColor whiteColor];
     overlay.tag = 99999;
+    overlay.userInteractionEnabled = YES;
     UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, frame.size.width, 100)];
     label.text = @"Hello";
     label.textAlignment = NSTextAlignmentCenter;
@@ -31,6 +32,7 @@ static void replaced_viewDidAppear(id self, SEL _cmd, BOOL animated) {
     [overlay addSubview:label];
     [overlay addSubview:button];
     [vc.view addSubview:overlay];
+    [vc.view bringSubviewToFront:overlay];
 }
 
 __attribute__((constructor))
