@@ -36,7 +36,7 @@ static void replaced_viewDidAppear(id self, SEL _cmd, BOOL animated) {
     UIWindow *w = UIApplication.sharedApplication.keyWindow;
     if (!w) return;
     circleAdded = YES;
-    DragCircle *circle = [[DragCircle alloc] initWithFrame:CGRectMake(100, 200, 80, 80)];
+    DragCircle *circle = [[DragCircle alloc] initWithFrame:CGRectMake(100, 200, 30, 30)];
     circle.tag = 77777;
     [w addSubview:circle];
     [w bringSubviewToFront:circle];
