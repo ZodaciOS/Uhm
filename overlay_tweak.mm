@@ -1,104 +1,51 @@
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
-static UIView *dot;
-static UIView *menu;
-static BOOL isDragging = NO;
-static CGPoint dragOffset;
-
-@interface OverlayWindow : UIWindow
+@interface DragCircle : UIView
 @end
 
-@implementation OverlayWindow
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    if (menu && !menu.hidden) {
-        if (!CGRectContainsPoint(menu.frame, point) && !CGRectContainsPoint(dot.frame, point)) {
-            menu.hidden = YES;
-        }
-    }
-    return [super hitTest:point withEvent:event];
+@implementation DragCircle {
+    CGPoint offset;
+}
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (!self) return nil;
+    self.backgroundColor = [UIColor redColor];
+    self.layer.cornerRadius = frame.size.width/2;
+    self.userInteractionEnabled = YES;
+    return self;
+}
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    UITouch *t = [touches anyObject];
+    offset = [t locationInView:self];
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    UITouch *t = [touches anyObject];
+    CGPoint p = [t locationInView:self.superview];
+    self.center = CGPointMake(p.x - offset.x + self.bounds.size.width/2,
+                              p.y - offset.y + self.bounds.size.height/2);
 }
 @end
 
-@interface OverlayController : UIViewController
-@end
+static BOOL circleAdded = NO;
+static void (*orig_viewDidAppear)(id, SEL, BOOL);
 
-@implementation OverlayController
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-
-    dot = [[UIView alloc] initWithFrame:CGRectMake(100, 100, 60, 60)];
-    dot.backgroundColor = [UIColor redColor];
-    dot.layer.cornerRadius = 30;
-    dot.userInteractionEnabled = YES;
-    [self.view addSubview:dot];
-
-    UITapGestureRecognizer *tapDot = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(openMenu)];
-    [dot addGestureRecognizer:tapDot];
-
-    UIPanGestureRecognizer *dragDot = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragDot:)];
-    [dot addGestureRecognizer:dragDot];
-
-    menu = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 120, 60)];
-    menu.backgroundColor = [UIColor colorWithWhite:0 alpha:0.8];
-    menu.layer.cornerRadius = 10;
-    menu.hidden = YES;
-    menu.userInteractionEnabled = YES;
-    [self.view addSubview:menu];
-
-    UIButton *yes = [UIButton buttonWithType:UIButtonTypeSystem];
-    yes.frame = CGRectMake(10, 10, 40, 40);
-    [yes setTitle:@"Yes" forState:UIControlStateNormal];
-    [menu addSubview:yes];
-
-    UIButton *no = [UIButton buttonWithType:UIButtonTypeSystem];
-    no.frame = CGRectMake(70, 10, 40, 40);
-    [no setTitle:@"No" forState:UIControlStateNormal];
-    [menu addSubview:no];
-
-    UIPanGestureRecognizer *dragMenu = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragMenu:)];
-    [menu addGestureRecognizer:dragMenu];
+static void replaced_viewDidAppear(id self, SEL _cmd, BOOL animated) {
+    orig_viewDidAppear(self, _cmd, animated);
+    if (circleAdded) return;
+    UIWindow *w = UIApplication.sharedApplication.keyWindow;
+    if (!w) return;
+    circleAdded = YES;
+    DragCircle *circle = [[DragCircle alloc] initWithFrame:CGRectMake(100, 200, 80, 80)];
+    circle.tag = 77777;
+    [w addSubview:circle];
+    [w bringSubviewToFront:circle];
 }
-
-- (void)openMenu {
-    if (isDragging) return;
-    menu.hidden = NO;
-    menu.center = CGPointMake(dot.center.x + 90, dot.center.y);
-}
-
-- (void)dragDot:(UIPanGestureRecognizer *)g {
-    CGPoint p = [g locationInView:self.view];
-    if (g.state == UIGestureRecognizerStateBegan) {
-        isDragging = YES;
-        dragOffset = CGPointMake(p.x - dot.center.x, p.y - dot.center.y);
-    }
-    if (g.state == UIGestureRecognizerStateChanged) {
-        dot.center = CGPointMake(p.x - dragOffset.x, p.y - dragOffset.y);
-    }
-    if (g.state == UIGestureRecognizerStateEnded) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100000000), dispatch_get_main_queue(), ^{
-            isDragging = NO;
-        });
-    }
-}
-
-- (void)dragMenu:(UIPanGestureRecognizer *)g {
-    CGPoint p = [g translationInView:self.view];
-    menu.center = CGPointMake(menu.center.x + p.x, menu.center.y + p.y);
-    [g setTranslation:CGPointZero inView:self.view];
-}
-
-@end
-
-static UIWindow *overlayWindow;
 
 __attribute__((constructor))
-static void startOverlay() {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        overlayWindow = [[OverlayWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        overlayWindow.windowLevel = UIWindowLevelAlert + 1;
-        overlayWindow.backgroundColor = [UIColor clearColor];
-        overlayWindow.rootViewController = [OverlayController new];
-        [overlayWindow makeKeyAndVisible];
-    });
+static void ctor() {
+    Class cls = objc_getClass("UIViewController");
+    Method m = class_getInstanceMethod(cls, @selector(viewDidAppear:));
+    orig_viewDidAppear = reinterpret_cast<void (*)(id, SEL, BOOL)>(method_getImplementation(m));
+    method_setImplementation(m, (IMP)replaced_viewDidAppear);
 }
