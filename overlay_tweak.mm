@@ -17,8 +17,7 @@
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     UITouch *t = [touches anyObject];
-    CGPoint p = [t locationInView:self];
-    offset = p;
+    offset = [t locationInView:self];
 }
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     UITouch *t = [touches anyObject];
@@ -28,16 +27,19 @@
 }
 @end
 
+static BOOL circleAdded = NO;
 static void (*orig_viewDidAppear)(id, SEL, BOOL);
 
 static void replaced_viewDidAppear(id self, SEL _cmd, BOOL animated) {
     orig_viewDidAppear(self, _cmd, animated);
-    UIViewController *vc = (UIViewController *)self;
-    if ([vc.view viewWithTag:77777] != nil) return;
+    if (circleAdded) return;
+    UIWindow *w = UIApplication.sharedApplication.keyWindow;
+    if (!w) return;
+    circleAdded = YES;
     DragCircle *circle = [[DragCircle alloc] initWithFrame:CGRectMake(100, 200, 80, 80)];
     circle.tag = 77777;
-    [vc.view addSubview:circle];
-    [vc.view bringSubviewToFront:circle];
+    [w addSubview:circle];
+    [w bringSubviewToFront:circle];
 }
 
 __attribute__((constructor))
